@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Nag">
+<meta name="theme-color" content="#0a0a0f">
+<link rel="manifest" href="manifest.json">
+<title>Nag</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f; --surface: #12121a; --surface2: #1c1c28;
+  --border: rgba(255,255,255,0.07);
+  --red: #ff3b3b; --red-dim: rgba(255,59,59,0.12);
+  --amber: #ffb800; --amber-dim: rgba(255,184,0,0.12);
+  --green: #00d97e; --green-dim: rgba(0,217,126,0.1);
+  --blue: #4a9eff; --blue-dim: rgba(74,158,255,0.12);
+  --text: #f0f0f4; --muted: rgba(240,240,244,0.4);
+  --mono: 'DM Mono', monospace; --serif: 'Instrument Serif', serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--mono);overscroll-behavior:none}
+body{display:flex;flex-direction:column;max-width:430px;margin:0 auto;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);min-height:100dvh}
+
+.header{padding:18px 18px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:10}
+.logo{font-family:var(--serif);font-size:26px;font-style:italic;color:var(--red)}
+.header-right{display:flex;gap:8px;align-items:center}
+.icon-btn{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:var(--muted);transition:all .2s}
+.icon-btn:active{transform:scale(.9)}
+.nag-toggle{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 12px;transition:all .2s}
+.nag-toggle.active{color:var(--red);border-color:var(--red);background:var(--red-dim)}
+.nag-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.nag-toggle.active .nag-dot{animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
+
+.banner{margin:10px 16px 0;background:var(--amber-dim);border:1px solid rgba(255,184,0,.3);border-radius:12px;padding:10px 14px;font-size:12px;color:var(--amber);display:none;cursor:pointer;line-height:1.5}
+.banner.show{display:block}
+
+.main{flex:1;overflow-y:auto;padding:0 14px 110px}
+.section-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:14px 4px 7px}
+.section-label.overdue-label{color:var(--red)}
+
+.reminder{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:7px;display:flex;align-items:flex-start;gap:11px;position:relative;overflow:hidden;animation:slideIn .22s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.reminder.overdue{border-color:rgba(255,59,59,.28);background:linear-gradient(135deg,rgba(255,59,59,.06) 0%,var(--surface) 55%)}
+.reminder.overdue::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--red);border-radius:14px 0 0 14px}
+.reminder.repeating{border-color:rgba(74,158,255,.2)}
+.reminder.done{opacity:.32}
+.check-btn{width:26px;height:26px;border-radius:50%;border:2px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:var(--muted);font-size:13px;transition:all .2s;margin-top:1px}
+.reminder.overdue .check-btn{border-color:var(--red);color:var(--red)}
+.check-btn:active{transform:scale(.85);background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.reminder-info{flex:1;min-width:0}
+.reminder-title{font-family:var(--serif);font-size:16px;color:var(--text)}
+.reminder.done .reminder-title{text-decoration:line-through}
+.reminder-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;align-items:center}
+.reminder-time{font-size:11px;color:var(--muted)}
+.reminder.overdue .reminder-time{color:var(--red)}
+.badge{font-size:9px;letter-spacing:.07em;text-transform:uppercase;border-radius:5px;padding:2px 6px}
+.badge-nag{color:var(--red);background:var(--red-dim);border:1px solid rgba(255,59,59,.25)}
+.badge-repeat{color:var(--blue);background:var(--blue-dim);border:1px solid rgba(74,158,255,.25)}
+.snooze-row{display:flex;gap:5px;margin-top:9px;padding-top:9px;border-top:1px solid var(--border);flex-wrap:wrap}
+.snooze-btn{font-family:var(--mono);font-size:10px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:4px 9px;cursor:pointer;transition:all .15s;letter-spacing:.04em}
+.snooze-btn:active{color:var(--amber);border-color:var(--amber);background:var(--amber-dim)}
+
+.empty{text-align:center;padding:55px 20px;color:var(--muted)}
+.empty-icon{font-size:44px;margin-bottom:10px;opacity:.45}
+.empty-text{font-family:var(--serif);font-size:17px;font-style:italic}
+
+.fab{position:fixed;bottom:calc(22px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:var(--red);color:white;border:none;border-radius:28px;padding:15px 30px;font-family:var(--mono);font-size:15px;cursor:pointer;box-shadow:0 8px 28px rgba(255,59,59,.32);transition:transform .15s,box-shadow .15s;z-index:20;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.fab:active{transform:translateX(-50%) scale(.95);box-shadow:0 4px 14px rgba(255,59,59,.2)}
+
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);z-index:50;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s}
+.modal-backdrop.open{opacity:1;pointer-events:all}
+.modal{width:100%;background:var(--surface);border-radius:22px 22px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .3s cubic-bezier(.34,1.56,.64,1);border:1px solid var(--border);border-bottom:none;max-height:92dvh;overflow-y:auto}
+.modal-backdrop.open .modal{transform:translateY(0)}
+.modal-handle{width:34px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 18px}
+.modal-title{font-family:var(--serif);font-size:20px;font-style:italic;margin-bottom:14px}
+
+.ai-row{display:flex;gap:8px;margin-bottom:12px}
+.ai-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-family:var(--mono);font-size:14px;color:var(--text);outline:none;transition:border-color .2s;resize:none}
+.ai-input:focus{border-color:rgba(255,59,59,.4)}
+.ai-input::placeholder{color:var(--muted)}
+.ai-btn{background:var(--red);border:none;border-radius:12px;padding:0 14px;font-size:18px;color:white;cursor:pointer;flex-shrink:0;transition:opacity .2s;display:flex;align-items:center}
+.ai-btn:disabled{opacity:.4}
+
+.parsed-preview{background:var(--bg);border:1px solid rgba(255,59,59,.2);border-radius:10px;padding:10px 13px;margin-bottom:12px;display:none}
+.parsed-preview.show{display:block}
+.parsed-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.parsed-row:last-child{margin-bottom:0}
+.parsed-key{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.parsed-val{font-family:var(--serif);font-size:14px}
+
+.field-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:7px;margin-top:14px}
+.field-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:11px;padding:11px 13px;font-family:var(--mono);font-size:14px;color:var(--text);outline:none;transition:border-color .2s}
+.field-input:focus{border-color:rgba(255,59,59,.35)}
+
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-family:var(--mono);font-size:11px;padding:6px 11px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;transition:all .15s}
+.chip.sel-red{background:var(--red-dim);border-color:var(--red);color:var(--red)}
+.chip.sel-blue{background:var(--blue-dim);border-color:var(--blue);color:var(--blue)}
+.chip.sel-none{background:var(--surface2);border-color:var(--border);color:var(--text)}
+
+.repeat-extra{display:none;margin-top:8px}
+.repeat-extra.show{display:block}
+.day-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.day-chip{font-family:var(--mono);font-size:11px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;transition:all .15s}
+.day-chip.on{background:var(--blue-dim);border-color:var(--blue);color:var(--blue)}
+
+.hint{font-size:10px;color:var(--muted);margin-top:5px;line-height:1.5}
+
+.submit-btn{width:100%;background:var(--red);color:white;border:none;border-radius:13px;padding:15px;font-family:var(--mono);font-size:15px;cursor:pointer;transition:opacity .2s;margin-top:18px}
+.submit-btn:active{opacity:.8}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.settings-section{margin-bottom:20px}
+.settings-title{font-family:var(--serif);font-size:14px;color:var(--muted);margin-bottom:10px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">nag.</div>
+  <div class="header-right">
+    <div class="icon-btn" onclick="openSettings()">⚙</div>
+    <div class="nag-toggle" id="globalNagToggle" onclick="toggleGlobalNag()">
+      <div class="nag-dot"></div>
+      <span id="nagLabel">Nag off</span>
+    </div>
+  </div>
+</div>
+
+<div id="notifBanner" class="banner" onclick="requestNotifPermission()">
+  🔔 Tap to allow notifications — required for nagging to work.
+</div>
+
+<div class="main" id="main"><div id="listContainer"></div></div>
+
+<button class="fab" onclick="openModal()"><span>+</span> new reminder</button>
+
+<!-- Add Modal -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="handleBackdrop(event,'modalBackdrop')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">What do you need to do?</div>
+
+    <div class="ai-row">
+      <textarea class="ai-input" id="aiInput" rows="2"
+        placeholder="e.g. 'dentist friday 2pm' or 'submit essay tomorrow morning'"
+        oninput="onAiChange()"></textarea>
+      <button class="ai-btn" id="parseBtn" onclick="parseWithAI()">✦</button>
+    </div>
+
+    <div class="parsed-preview" id="parsedPreview">
+      <div class="parsed-row"><span class="parsed-key">Title</span><span class="parsed-val" id="parsedTitle">—</span></div>
+      <div class="parsed-row"><span class="parsed-key">Time</span><span class="parsed-val" id="parsedTime">—</span></div>
+    </div>
+
+    <div class="field-label">Date & Time</div>
+    <input type="datetime-local" class="field-input" id="datetimeInput">
+
+    <div class="field-label">Nag every (repeat notifications until done)</div>
+    <div class="chips" id="nagChips">
+      <div class="chip sel-none" data-min="0" onclick="selChip(this,'nag')">Off</div>
+      <div class="chip" data-min="0.5" onclick="selChip(this,'nag')">30s</div>
+      <div class="chip" data-min="1" onclick="selChip(this,'nag')">1m</div>
+      <div class="chip" data-min="2" onclick="selChip(this,'nag')">2m</div>
+      <div class="chip" data-min="5" onclick="selChip(this,'nag')">5m</div>
+      <div class="chip" data-min="10" onclick="selChip(this,'nag')">10m</div>
+      <div class="chip" data-min="30" onclick="selChip(this,'nag')">30m</div>
+      <div class="chip" data-min="60" onclick="selChip(this,'nag')">1hr</div>
+    </div>
+
+    <div class="field-label">Repeat event</div>
+    <div class="chips" id="repeatChips">
+      <div class="chip sel-none" data-repeat="none" onclick="selChip(this,'repeat')">None</div>
+      <div class="chip" data-repeat="daily" onclick="selChip(this,'repeat')">Daily</div>
+      <div class="chip" data-repeat="weekly" onclick="selChip(this,'repeat')">Weekly</div>
+      <div class="chip" data-repeat="biweekly" onclick="selChip(this,'repeat')">Every 2 wks</div>
+      <div class="chip" data-repeat="custom" onclick="selChip(this,'repeat')">Custom days</div>
+    </div>
+
+    <div class="repeat-extra" id="customDaysSection">
+      <div class="field-label" style="margin-top:10px">Which days?</div>
+      <div class="day-chips">
+        <div class="day-chip" data-day="0" onclick="toggleDay(this)">Sun</div>
+        <div class="day-chip" data-day="1" onclick="toggleDay(this)">Mon</div>
+        <div class="day-chip" data-day="2" onclick="toggleDay(this)">Tue</div>
+        <div class="day-chip" data-day="3" onclick="toggleDay(this)">Wed</div>
+        <div class="day-chip" data-day="4" onclick="toggleDay(this)">Thu</div>
+        <div class="day-chip" data-day="5" onclick="toggleDay(this)">Fri</div>
+        <div class="day-chip" data-day="6" onclick="toggleDay(this)">Sat</div>
+      </div>
+      <div class="field-label" style="margin-top:12px">Repeat every how many weeks?</div>
+      <input type="number" class="field-input" id="weekInterval" value="1" min="1" max="52" style="max-width:100px">
+      <div class="hint">e.g. 2 = every other week on selected days (Mon/Thu/Fri, every 2 weeks, etc.)</div>
+    </div>
+
+    <div class="field-label">Notification style</div>
+    <div class="chips" id="soundChips">
+      <div class="chip sel-none" data-sound="default" onclick="selChip(this,'sound')">Default</div>
+      <div class="chip" data-sound="alarm" onclick="selChip(this,'sound')">🔔 Alarm</div>
+      <div class="chip" data-sound="urgent" onclick="selChip(this,'sound')">🚨 Urgent</div>
+      <div class="chip" data-sound="gentle" onclick="selChip(this,'sound')">🎵 Gentle</div>
+      <div class="chip" data-sound="silent" onclick="selChip(this,'sound')">📳 Vibrate</div>
+    </div>
+    <div class="hint">iPhone controls the final sound. "Urgent" uses longer vibration patterns. For louder alarms, also raise your ringer volume.</div>
+
+    <button class="submit-btn" id="submitBtn" onclick="addReminder()">Add Reminder</button>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-backdrop" id="settingsBackdrop" onclick="handleBackdrop(event,'settingsBackdrop')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Settings</div>
+
+    <div class="settings-section">
+      <div class="settings-title">Default nag interval</div>
+      <div class="chips" id="defNagChips">
+        <div class="chip" data-min="0.5" onclick="selDefault(this,'nag')">30s</div>
+        <div class="chip" data-min="1" onclick="selDefault(this,'nag')">1m</div>
+        <div class="chip sel-red" data-min="5" onclick="selDefault(this,'nag')">5m</div>
+        <div class="chip" data-min="10" onclick="selDefault(this,'nag')">10m</div>
+        <div class="chip" data-min="30" onclick="selDefault(this,'nag')">30m</div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-title">Default notification style</div>
+      <div class="chips" id="defSoundChips">
+        <div class="chip sel-red" data-sound="default" onclick="selDefault(this,'sound')">Default</div>
+        <div class="chip" data-sound="alarm" onclick="selDefault(this,'sound')">🔔 Alarm</div>
+        <div class="chip" data-sound="urgent" onclick="selDefault(this,'sound')">🚨 Urgent</div>
+        <div class="chip" data-sound="gentle" onclick="selDefault(this,'sound')">🎵 Gentle</div>
+        <div class="chip" data-sound="silent" onclick="selDefault(this,'sound')">📳 Vibrate</div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-title">Notifications</div>
+      <div class="chips">
+        <div class="chip" onclick="requestNotifPermission()" style="color:var(--amber);border-color:var(--amber);background:var(--amber-dim)">Re-request permission</div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-title">Data</div>
+      <div class="chips">
+        <div class="chip" onclick="clearDone()">Clear completed</div>
+        <div class="chip" onclick="clearAll()" style="color:var(--red);border-color:rgba(255,59,59,.3)">Clear all</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let reminders = JSON.parse(localStorage.getItem('nag_r') || '[]');
+let globalNag = localStorage.getItem('nag_global') !== 'false';
+let settings = JSON.parse(localStorage.getItem('nag_s') || '{"defNagMin":5,"defSound":"default"}');
+let selNagMin = 0, selRepeat = 'none', selCustomDays = [], selSound = 'default', parsedData = null;
+let nagTimers = {};
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data?.type === 'MARK_DONE') markDone(e.data.id);
+    if (e.data?.type === 'SNOOZE') snoozeReminder(e.data.id, 5);
+  });
+}
+
+function init() {
+  setDefDt(); renderList(); updateNagToggle(); checkNotif();
+  if (globalNag) scheduleAllNags();
+  setInterval(renderList, 30000);
+}
+
+function save() { localStorage.setItem('nag_r', JSON.stringify(reminders)); }
+function saveSettings() { localStorage.setItem('nag_s', JSON.stringify(settings)); }
+
+function setDefDt() {
+  const dt = document.getElementById('datetimeInput');
+  const n = new Date(); n.setMinutes(n.getMinutes()+30); n.setSeconds(0);
+  dt.value = n.toISOString().slice(0,16);
+}
+
+function checkNotif() {
+  if (Notification.permission === 'default') document.getElementById('notifBanner').classList.add('show');
+}
+
+async function requestNotifPermission() {
+  const r = await Notification.requestPermission();
+  if (r === 'granted') {
+    document.getElementById('notifBanner').classList.remove('show');
+    if (globalNag) scheduleAllNags();
+  }
+}
+
+function showNotif(title, body, id, sound) {
+  if (Notification.permission !== 'granted') return;
+  const vib = sound === 'urgent' ? [200,100,200,100,400,100,400] :
+               sound === 'alarm'  ? [300,150,300,150,300] :
+               sound === 'gentle' ? [100] :
+               sound === 'silent' ? [200] : [150,75,150];
+  navigator.serviceWorker.ready.then(reg => reg.showNotification(title, {
+    body: body || 'Tap to act.',
+    tag: `nag-${id}`, renotify: true, requireInteraction: true,
+    actions: [{action:'done',title:'✓ Done'},{action:'snooze',title:'⏱ +5m'}],
+    data: {id, title}, vibrate: vib, silent: sound === 'silent'
+  }));
+}
+
+function scheduleNag(r) {
+  clearNag(r.id);
+  if (!globalNag || r.done || !r.nagMin || r.nagMin===0 || Notification.permission!=='granted') return;
+  const due = new Date(r.datetime).getTime();
+  const delay = Math.max(due - Date.now(), 0);
+  const iv = r.nagMin * 60 * 1000;
+  nagTimers[r.id] = [];
+  const t0 = setTimeout(() => {
+    const cur = getById(r.id);
+    if (!cur || cur.done) return;
+    showNotif(cur.title, 'Due now!', cur.id, cur.sound);
+    renderList();
+    const t1 = setInterval(() => {
+      const c = getById(r.id);
+      if (!c || c.done) { clearInterval(t1); return; }
+      const lbl = r.nagMin < 1 ? '30s' : r.nagMin+'m';
+      showNotif(c.title, `Still waiting (every ${lbl})`, c.id, c.sound);
+      renderList();
+    }, iv);
+    nagTimers[r.id].push(t1);
+  }, delay);
+  nagTimers[r.id].push(t0);
+}
+
+function clearNag(id) {
+  (nagTimers[id]||[]).forEach(t=>{clearTimeout(t);clearInterval(t)});
+  delete nagTimers[id];
+}
+
+function scheduleAllNags() { reminders.forEach(r => { if (!r.done) scheduleNag(r); }); }
+function getById(id) { return reminders.find(r=>r.id===id); }
+
+function advanceRepeats() {
+  let changed = false;
+  reminders.forEach(r => {
+    if (!r.repeat || r.repeat==='none' || !r.done) return;
+    const next = nextRepeat(r);
+    if (next) { r.datetime = next.toISOString(); r.done = false; changed = true; }
+  });
+  if (changed) { save(); scheduleAllNags(); }
+}
+
+function nextRepeat(r) {
+  const now = new Date();
+  const base = new Date(r.datetime);
+  const h = base.getHours(), m = base.getMinutes();
+
+  if (r.repeat === 'daily') {
+    const n = new Date(now); n.setHours(h,m,0,0);
+    if (n <= now) n.setDate(n.getDate()+1);
+    return n;
+  }
+  if (r.repeat === 'weekly') {
+    const dow = base.getDay();
+    const n = new Date(now); n.setHours(h,m,0,0);
+    let d = (dow - n.getDay() + 7) % 7;
+    if (d===0 && n<=now) d=7;
+    n.setDate(n.getDate()+d); return n;
+  }
+  if (r.repeat === 'biweekly') {
+    const dow = base.getDay();
+    const n = new Date(now); n.setHours(h,m,0,0);
+    let d = (dow - n.getDay() + 7) % 7;
+    if (d===0 && n<=now) d=14;
+    n.setDate(n.getDate()+d); return n;
+  }
+  if (r.repeat === 'custom' && r.customDays?.length > 0) {
+    const wi = r.weekInterval || 1;
+    for (let i=1; i<=366; i++) {
+      const n = new Date(now); n.setDate(now.getDate()+i); n.setHours(h,m,0,0);
+      if (!r.customDays.includes(n.getDay())) continue;
+      const wks = Math.floor((n - base) / (7*24*3600*1000));
+      if (wks % wi === 0) return n;
+    }
+  }
+  return null;
+}
+
+function renderList() {
+  advanceRepeats();
+  const now = Date.now();
+  const active = reminders.filter(r=>!r.done);
+  const done = reminders.filter(r=>r.done);
+  const overdue = active.filter(r=>new Date(r.datetime)<now).sort((a,b)=>new Date(a.datetime)-new Date(b.datetime));
+  const upcoming = active.filter(r=>new Date(r.datetime)>=now).sort((a,b)=>new Date(a.datetime)-new Date(b.datetime));
+  let html = '';
+  if (overdue.length) { html+=`<div class="section-label overdue-label">● Overdue</div>`; overdue.forEach(r=>html+=card(r,true)); }
+  if (upcoming.length) { html+=`<div class="section-label">Upcoming</div>`; upcoming.forEach(r=>html+=card(r,false)); }
+  if (done.length) { html+=`<div class="section-label">Done</div>`; done.slice(-8).reverse().forEach(r=>html+=card(r,false)); }
+  if (!reminders.length) html=`<div class="empty"><div class="empty-icon">✓</div><div class="empty-text">Nothing to nag you about.<br>Add something.</div></div>`;
+  document.getElementById('listContainer').innerHTML = html;
+}
+
+function card(r, isOverdue) {
+  const t = fmtTime(new Date(r.datetime));
+  const nagB = r.nagMin&&r.nagMin>0 ? `<span class="badge badge-nag">every ${r.nagMin<1?'30s':r.nagMin+'m'}</span>` : '';
+  const repB = r.repeat&&r.repeat!=='none' ? `<span class="badge badge-repeat">↺ ${repDesc(r)}</span>` : '';
+  const snooze = isOverdue ? `<div class="snooze-row">
+    <button class="snooze-btn" onclick="snoozeReminder('${r.id}',5);event.stopPropagation()">+5m</button>
+    <button class="snooze-btn" onclick="snoozeReminder('${r.id}',15);event.stopPropagation()">+15m</button>
+    <button class="snooze-btn" onclick="snoozeReminder('${r.id}',60);event.stopPropagation()">+1h</button>
+    <button class="snooze-btn" onclick="snoozeReminder('${r.id}',1440);event.stopPropagation()">tomorrow</button>
+  </div>` : '';
+  const cls = [isOverdue?'overdue':'', r.done?'done':'', (r.repeat&&r.repeat!=='none')?'repeating':''].join(' ');
+  return `<div class="reminder ${cls}">
+    <button class="check-btn" onclick="markDone('${r.id}');event.stopPropagation()">${r.done?'✓':'○'}</button>
+    <div class="reminder-info">
+      <div class="reminder-title">${esc(r.title)}</div>
+      <div class="reminder-meta"><span class="reminder-time">${t}</span>${nagB}${repB}</div>
+      ${snooze}
+    </div>
+  </div>`;
+}
+
+function repDesc(r) {
+  const days = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  if (r.repeat==='daily') return 'daily';
+  if (r.repeat==='weekly') return 'weekly';
+  if (r.repeat==='biweekly') return 'every 2wk';
+  if (r.repeat==='custom') {
+    const d = (r.customDays||[]).map(i=>days[i]).join(' ');
+    return r.weekInterval>1 ? `${d} /${r.weekInterval}wk` : d;
+  }
+  return '';
+}
+
+function fmtTime(dt) {
+  const now = new Date();
+  const diffMin = Math.round((dt-now)/60000);
+  const abs = Math.abs(diffMin);
+  if (abs<1) return 'right now';
+  if (diffMin<0) {
+    if (abs<60) return `${abs}m ago`;
+    if (abs<1440) return `${Math.round(abs/60)}h ago`;
+    return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' (overdue)';
+  }
+  if (diffMin<60) return `in ${diffMin}m`;
+  if (diffMin<1440) return `in ${Math.round(diffMin/60)}h`;
+  const tom = new Date(now); tom.setDate(now.getDate()+1);
+  const ts = dt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  if (dt.toDateString()===now.toDateString()) return `today ${ts}`;
+  if (dt.toDateString()===tom.toDateString()) return `tomorrow ${ts}`;
+  return dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' '+ts;
+}
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function markDone(id) {
+  const r = getById(id); if (!r) return;
+  r.done = !r.done;
+  if (r.done) { clearNag(id); if (r.repeat&&r.repeat!=='none') setTimeout(()=>{advanceRepeats();renderList();},1200); }
+  else scheduleNag(r);
+  save(); renderList();
+}
+
+function snoozeReminder(id, min) {
+  const r = getById(id); if (!r) return;
+  r.datetime = new Date(Date.now()+min*60000).toISOString();
+  clearNag(id); scheduleNag(r); save(); renderList();
+}
+
+function toggleGlobalNag() {
+  globalNag = !globalNag;
+  localStorage.setItem('nag_global', globalNag);
+  updateNagToggle();
+  if (globalNag) { if (Notification.permission!=='granted') requestNotifPermission(); else scheduleAllNags(); }
+  else Object.keys(nagTimers).forEach(clearNag);
+}
+
+function updateNagToggle() {
+  const t = document.getElementById('globalNagToggle');
+  const l = document.getElementById('nagLabel');
+  if (globalNag) { t.classList.add('active'); l.textContent='Nagging'; }
+  else { t.classList.remove('active'); l.textContent='Nag off'; }
+}
+
+function selChip(el, group) {
+  const ids = {nag:'nagChips',repeat:'repeatChips',sound:'soundChips'};
+  document.getElementById(ids[group]).querySelectorAll('.chip').forEach(c=>c.classList.remove('sel-red','sel-blue','sel-none'));
+  if (group==='nag') {
+    const m = parseFloat(el.dataset.min);
+    el.classList.add(m===0?'sel-none':'sel-red');
+    selNagMin = m;
+  } else if (group==='repeat') {
+    const rep = el.dataset.repeat;
+    el.classList.add(rep==='none'?'sel-none':'sel-blue');
+    selRepeat = rep;
+    document.getElementById('customDaysSection').classList.toggle('show', rep==='custom');
+  } else if (group==='sound') {
+    const s = el.dataset.sound;
+    el.classList.add(s==='default'?'sel-none':'sel-red');
+    selSound = s;
+  }
+}
+
+function toggleDay(el) {
+  el.classList.toggle('on');
+  const d = parseInt(el.dataset.day);
+  if (el.classList.contains('on')) { if (!selCustomDays.includes(d)) selCustomDays.push(d); }
+  else selCustomDays = selCustomDays.filter(x=>x!==d);
+}
+
+function onAiChange() { parsedData=null; document.getElementById('parsedPreview').classList.remove('show'); }
+
+async function parseWithAI() {
+  const input = document.getElementById('aiInput').value.trim();
+  if (!input) return;
+  const btn = document.getElementById('parseBtn');
+  btn.disabled=true; btn.textContent='…';
+  try {
+    const now = new Date().toISOString();
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 300,
+        system: `You are a reminder parser. Current ISO datetime: ${now}. User timezone: ${tz}.
+Parse the user input into a reminder title and datetime.
+Return ONLY a raw JSON object — no markdown, no backticks, no explanation, no extra text whatsoever.
+Format exactly: {"title":"concise 2-5 word title","datetime":"YYYY-MM-DDTHH:mm:ss"}
+Rules:
+- Title: 2-5 words, no filler words, clear and actionable
+- Datetime: full ISO 8601, in the user's local timezone
+- "tomorrow" → next calendar day at stated time, or 9:00am if no time
+- "this weekend" → coming Saturday at 10:00am
+- "monday" when today is monday → next monday
+- No time given → 9:00am on the relevant day
+- Always produce a valid complete JSON object`,
+        messages: [{role:'user',content:input}]
+      })
+    });
+    const data = await resp.json();
+    const raw = (data.content?.[0]?.text||'').trim();
+    const clean = raw.replace(/^```[\w]*\n?/,'').replace(/\n?```$/,'').trim();
+    parsedData = JSON.parse(clean);
+    document.getElementById('parsedTitle').textContent = parsedData.title;
+    const dt = new Date(parsedData.datetime);
+    document.getElementById('parsedTime').textContent = dt.toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    document.getElementById('parsedPreview').classList.add('show');
+    document.getElementById('datetimeInput').value = parsedData.datetime.slice(0,16);
+  } catch(err) {
+    console.error('Parse fail:', err);
+    alert('Could not parse. Check the date/time field below and set it manually.');
+  }
+  btn.disabled=false; btn.textContent='✦';
+}
+
+function openModal() {
+  resetModal();
+  document.getElementById('modalBackdrop').classList.add('open');
+  setTimeout(()=>document.getElementById('aiInput').focus(),350);
+}
+
+function openSettings() { document.getElementById('settingsBackdrop').classList.add('open'); }
+
+function handleBackdrop(e, id) {
+  if (e.target===document.getElementById(id)) document.getElementById(id).classList.remove('open');
+}
+
+function resetModal() {
+  document.getElementById('aiInput').value='';
+  document.getElementById('parsedPreview').classList.remove('show');
+  parsedData=null; selNagMin=0; selRepeat='none'; selCustomDays=[]; selSound='default';
+  setDefDt();
+  const rC = (id, def) => {
+    document.getElementById(id).querySelectorAll('.chip').forEach(c=>c.classList.remove('sel-red','sel-blue','sel-none'));
+    document.querySelector(`#${id} .chip[${def}]`).classList.add('sel-none');
+  };
+  rC('nagChips','data-min="0"'); rC('repeatChips','data-repeat="none"'); rC('soundChips','data-sound="default"');
+  document.querySelectorAll('.day-chip').forEach(c=>c.classList.remove('on'));
+  document.getElementById('customDaysSection').classList.remove('show');
+  document.getElementById('weekInterval').value=1;
+}
+
+async function addReminder() {
+  const aiVal = document.getElementById('aiInput').value.trim();
+  const dtVal = document.getElementById('datetimeInput').value;
+  if (!aiVal && !dtVal) { document.getElementById('aiInput').focus(); return; }
+  const btn = document.getElementById('submitBtn');
+  if (aiVal && !parsedData) {
+    btn.innerHTML='<span class="spinner"></span>Parsing…'; btn.disabled=true;
+    await parseWithAI();
+    btn.innerHTML='Add Reminder'; btn.disabled=false;
+  }
+  const title = parsedData?.title || aiVal || 'Reminder';
+  const datetime = parsedData?.datetime || (dtVal ? new Date(dtVal).toISOString() : new Date(Date.now()+3600000).toISOString());
+  const r = {
+    id: Date.now().toString(), title, datetime,
+    nagMin: selNagMin, repeat: selRepeat,
+    customDays: [...selCustomDays],
+    weekInterval: parseInt(document.getElementById('weekInterval').value)||1,
+    sound: selSound, done: false, created: new Date().toISOString()
+  };
+  reminders.push(r); save();
+  if (globalNag) scheduleNag(r);
+  document.getElementById('modalBackdrop').classList.remove('open');
+  renderList();
+  document.getElementById('main').scrollTo({top:0,behavior:'smooth'});
+}
+
+function selDefault(el, type) {
+  const id = type==='nag' ? 'defNagChips' : 'defSoundChips';
+  document.getElementById(id).querySelectorAll('.chip').forEach(c=>c.classList.remove('sel-red','sel-blue','sel-none'));
+  el.classList.add('sel-red');
+  if (type==='nag') settings.defNagMin = parseFloat(el.dataset.min);
+  else settings.defSound = el.dataset.sound;
+  saveSettings();
+}
+
+function clearDone() {
+  if (!confirm('Clear all completed?')) return;
+  reminders = reminders.filter(r=>!r.done); save(); renderList();
+}
+
+function clearAll() {
+  if (!confirm('Delete ALL reminders? Cannot be undone.')) return;
+  Object.keys(nagTimers).forEach(clearNag);
+  reminders=[]; save(); renderList();
+}
+
+init();
+</script>
+</body>
+</html>
